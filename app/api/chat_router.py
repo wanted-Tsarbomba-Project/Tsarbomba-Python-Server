@@ -21,6 +21,8 @@ def chat(request: ChatRequest) -> ChatResponse:
     4. ChatResponse 반환
     """
     settings = get_settings()
+    history_len = len(request.conversation_history or [])
+    print(f"[chat] user_message={request.user_message!r} history_len={history_len}")
     system_prompt = build_system_prompt(request, settings.default_max_length)
     response = call_gemini(request, system_prompt)
     return response
