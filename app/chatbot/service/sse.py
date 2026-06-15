@@ -6,13 +6,14 @@
 """
 
 import json
+from typing import Optional
 
 # Spring/도메인과 공유하는 SSE 이벤트 타입
 EVENT_DONE = "done"
 EVENT_ERROR = "error"
 
 
-def _frame(data: str, event: str | None = None) -> str:
+def _frame(data: str, event: Optional[str] = None) -> str:
     """단일 SSE 프레임 문자열을 만든다. data는 이미 직렬화된 한 줄 문자열이어야 한다."""
     prefix = f"event: {event}\n" if event else ""
     return f"{prefix}data: {data}\n\n"

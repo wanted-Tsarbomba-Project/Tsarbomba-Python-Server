@@ -1,6 +1,6 @@
 import json
 
-from app.service import sse
+from app.chatbot.service import sse
 
 
 def _parse(frame: str):

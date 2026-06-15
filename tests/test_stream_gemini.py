@@ -1,7 +1,7 @@
 import json
 
-from app.schema.chat import ChatRequest
-from app.service import gemini_client
+from app.chatbot.schema.chat import ChatRequest
+from app.chatbot.service import gemini_client
 
 
 class _FakeChunk:

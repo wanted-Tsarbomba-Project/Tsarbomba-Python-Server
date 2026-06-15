@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
-from app.schema.chat import ChatRequest
+from app.chatbot.schema.chat import ChatRequest
 
-# templates/ 디렉토리 기준으로 Jinja2 환경 설정
-_TEMPLATES_DIR = Path(__file__).parent.parent.parent / "templates"
+# templates/ 디렉토리 기준으로 Jinja2 환경 설정 (app/chatbot/service → 프로젝트 루트)
+_TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "templates"
 _env = Environment(
     loader=FileSystemLoader(str(_TEMPLATES_DIR)),
     trim_blocks=True,

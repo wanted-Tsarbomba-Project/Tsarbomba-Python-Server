@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from app.schema.chat import ChatRequest
-from app.service.prompt_builder import build_system_prompt
-from app.service.gemini_client import stream_gemini
+from app.chatbot.schema.chat import ChatRequest
+from app.chatbot.service.prompt_builder import build_system_prompt
+from app.chatbot.service.gemini_client import stream_gemini
 from app.core.config import get_settings
 
 router = APIRouter()

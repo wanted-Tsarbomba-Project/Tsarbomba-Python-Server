@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.chat_router import router
+from app.chatbot.api.chat_router import router
 
 app = FastAPI(
     title="tsarbomba ChatBot API",

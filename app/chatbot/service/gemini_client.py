@@ -6,8 +6,8 @@ from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
-from app.schema.chat import ChatRequest
-from app.service import sse
+from app.chatbot.schema.chat import ChatRequest
+from app.chatbot.service import sse
 
 logger = logging.getLogger(__name__)
 
