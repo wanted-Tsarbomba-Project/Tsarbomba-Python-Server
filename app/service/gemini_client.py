@@ -1,10 +1,19 @@
+import logging
 from functools import lru_cache
+from typing import Iterator
 
 from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
-from app.schema.chat import ChatRequest, ChatResponse
+from app.schema.chat import ChatRequest
+from app.service import sse
+
+logger = logging.getLogger(__name__)
+
+# 정답 노출 등 도메인 에러코드 (Spring ChatErrorCode와 공유)
+AI_RESPONSE_FAILED = "CHT-003"
+AI_RESPONSE_FAILED_MESSAGE = "AI 응답 생성에 실패했습니다."
 
 
 @lru_cache()
@@ -12,21 +21,15 @@ def _get_client() -> genai.Client:
     return genai.Client(api_key=get_settings().gemini_api_key)
 
 
-def call_gemini(request: ChatRequest, system_prompt: str) -> ChatResponse:
-    settings = get_settings()
-    client = _get_client()
-
-    # conversation_history → Gemini contents 멀티턴 매핑
+def _build_contents(request: ChatRequest) -> list[types.Content]:
+    """conversation_history + 변하는 컨텍스트를 Gemini contents로 조립한다."""
     contents: list[types.Content] = []
 
     if request.conversation_history:
         for msg in request.conversation_history:
             role = "model" if msg.role == "ai" else "user"
             contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part(text=msg.content)],
-                )
+                types.Content(role=role, parts=[types.Part(text=msg.content)])
             )
 
     # 변하는 컨텍스트를 user_message prefix로 합침 (캐시 히트 유지)
@@ -51,27 +54,44 @@ def call_gemini(request: ChatRequest, system_prompt: str) -> ChatResponse:
         current_text = "\n\n".join(prefix_parts) + "\n\n" + request.user_message
 
     contents.append(
-        types.Content(
-            role="user",
-            parts=[types.Part(text=current_text)],
+        types.Content(role="user", parts=[types.Part(text=current_text)])
+    )
+    return contents
+
+
+def _usage_payload(usage_metadata) -> dict:
+    """Gemini usage_metadata → done 이벤트 페이로드."""
+    if usage_metadata is None:
+        return {"promptTokens": 0, "completionTokens": 0, "totalTokens": 0}
+    return {
+        "promptTokens": usage_metadata.prompt_token_count or 0,
+        "completionTokens": usage_metadata.candidates_token_count or 0,
+        "totalTokens": usage_metadata.total_token_count or 0,
+    }
+
+
+def stream_gemini(request: ChatRequest, system_prompt: str) -> Iterator[str]:
+    """Gemini 스트림을 SSE 프레임 문자열로 흘린다.
+
+    토큰마다 token_frame, 끝에 done_frame(사용량). 도중 예외는 error_frame으로 보내고 종료.
+    """
+    settings = get_settings()
+    client = _get_client()
+    contents = _build_contents(request)
+
+    usage = None
+    try:
+        stream = client.models.generate_content_stream(
+            model=settings.gemini_model,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=system_prompt),
         )
-    )
-
-    response = client.models.generate_content(
-        model=settings.gemini_model,
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt,
-        ),
-    )
-
-    answer = response.text or ""
-
-    return ChatResponse(
-        answer=answer,
-        is_answer_detected=False,  # 미구현 — 추후 활성화
-        retry_count=0,             # 미구현
-        prompt_tokens=0,           # 미구현
-        completion_tokens=0,       # 미구현
-        total_tokens=0,            # 미구현
-    )
+        for chunk in stream:
+            if chunk.text:
+                yield sse.token_frame(chunk.text)
+            if getattr(chunk, "usage_metadata", None) is not None:
+                usage = chunk.usage_metadata
+        yield sse.done_frame(_usage_payload(usage))
+    except Exception:
+        logger.exception("Gemini 스트리밍 중 예외")
+        yield sse.error_frame(AI_RESPONSE_FAILED, AI_RESPONSE_FAILED_MESSAGE)

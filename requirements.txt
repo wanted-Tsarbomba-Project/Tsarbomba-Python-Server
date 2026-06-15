@@ -5,3 +5,7 @@ pydantic-settings
 python-dotenv
 google-genai
 jinja2
+
+# dev
+pytest
+httpx

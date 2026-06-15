@@ -37,12 +37,3 @@ class ChatRequest(BaseModel):
     session_progress: Optional[SessionProgress] = None
     dataset: Optional[DatasetInfo] = None
     conversation_history: Optional[list[ConversationMessage]] = None
-
-
-class ChatResponse(BaseModel):
-    answer: str
-    is_answer_detected: bool = False
-    retry_count: int = 0
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
