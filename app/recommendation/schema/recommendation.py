@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RecommendationGenerateRequest(BaseModel):
-    recommendation_count: int = Field(default=3, alias="recommendationCount")
+    recommendation_count: int = Field(default=3, gt=0, alias="recommendationCount")
 
     model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 

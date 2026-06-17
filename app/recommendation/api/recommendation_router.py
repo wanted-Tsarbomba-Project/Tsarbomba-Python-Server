@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from app.recommendation.schema.recommendation import (
     RecommendationGenerateRequest,
@@ -7,6 +7,7 @@ from app.recommendation.schema.recommendation import (
 from app.recommendation.service.recommendation_service import (
     generate_problem_set_recommendations,
 )
+from app.recommendation.service.repository import RecommendationRepositoryError
 
 router = APIRouter(
     prefix="/internal/recommendations",
@@ -22,4 +23,10 @@ router = APIRouter(
 def generate_recommendations(
     request: RecommendationGenerateRequest,
 ) -> RecommendationGenerateResponse:
-    return generate_problem_set_recommendations(request.recommendation_count)
+    try:
+        return generate_problem_set_recommendations(request.recommendation_count)
+    except RecommendationRepositoryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc

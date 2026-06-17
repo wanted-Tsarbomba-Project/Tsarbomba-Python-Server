@@ -52,6 +52,7 @@ def generate_apriori_recommendations(
             recommendation_count=recommendation_count,
         )
 
+        # 응답에 포함되는 사용자는 프론트 계약상 항상 요청 개수만큼 추천을 가진다.
         if len(recommendations) == recommendation_count:
             recommendations_by_user[user_id] = recommendations
 

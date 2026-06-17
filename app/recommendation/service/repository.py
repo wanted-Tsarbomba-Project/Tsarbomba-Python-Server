@@ -1,8 +1,15 @@
+import logging
 from collections import defaultdict
 
 import pymysql
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class RecommendationRepositoryError(RuntimeError):
+    """Raised when recommendation source data cannot be loaded."""
 
 
 def _get_connection():
@@ -39,10 +46,14 @@ def find_completed_problem_sets_by_user() -> dict[int, set[int]]:
 
     completed_by_user = defaultdict(set)
 
-    with _get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
+    try:
+        with _get_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                rows = cursor.fetchall()
+    except pymysql.MySQLError as exc:
+        logger.exception("완료 문제집 조회 중 DB 예외")
+        raise RecommendationRepositoryError("추천 데이터 조회에 실패했습니다.") from exc
 
     for row in rows:
         completed_by_user[int(row["user_id"])].add(int(row["problem_set_id"]))
@@ -60,9 +71,13 @@ def find_active_problem_set_ids() -> set[int]:
           AND pc.status = 'ACTIVE'
     """
 
-    with _get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
+    try:
+        with _get_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                rows = cursor.fetchall()
+    except pymysql.MySQLError as exc:
+        logger.exception("활성 문제집 조회 중 DB 예외")
+        raise RecommendationRepositoryError("추천 데이터 조회에 실패했습니다.") from exc
 
     return {int(row["problem_set_id"]) for row in rows}
