@@ -17,6 +17,7 @@ from app.recommendation.service.repository import (
 )
 
 logger = logging.getLogger(__name__)
+RECOMMENDATION_ALGORITHM = "ASSOCIATION_RULE_BRUTE_FORCE"
 
 
 def generate_problem_set_recommendations(
@@ -51,7 +52,7 @@ def generate_problem_set_recommendations(
                     confidence=recommendation.confidence,
                     lift=recommendation.lift,
                     rank_no=recommendation.rank_no,
-                    algorithm="APRIORI",
+                    algorithm=RECOMMENDATION_ALGORITHM,
                 )
                 for recommendation in recommendations
             ],
