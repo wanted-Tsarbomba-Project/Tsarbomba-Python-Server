@@ -123,83 +123,18 @@ def _record_scale_values(
 def _calculate_frequent_itemset_support_counts(
     transactions: list[set[int]],
 ) -> dict[frozenset[int], int]:
-    support_counts = {}
-
-    current_frequent_itemsets = _find_frequent_single_itemsets(transactions)
-    support_counts.update(current_frequent_itemsets)
-
-    itemset_size = 2
-    while current_frequent_itemsets and itemset_size <= MAX_ITEMSET_SIZE:
-        candidates = _generate_candidates(
-            previous_frequent_itemsets=set(current_frequent_itemsets),
-            itemset_size=itemset_size,
-        )
-
-        current_frequent_itemsets = _count_frequent_candidates(
-            transactions=transactions,
-            candidates=candidates,
-        )
-        support_counts.update(current_frequent_itemsets)
-        itemset_size += 1
-
-    return support_counts
-
-
-def _find_frequent_single_itemsets(
-    transactions: list[set[int]],
-) -> dict[frozenset[int], int]:
     item_counts = {}
 
     for transaction in transactions:
-        for problem_set_id in transaction:
-            itemset = frozenset({problem_set_id})
-            item_counts[itemset] = item_counts.get(itemset, 0) + 1
+        sorted_transaction = sorted(transaction)
+        max_size = min(len(sorted_transaction), MAX_ITEMSET_SIZE)
+
+        for itemset_size in range(1, max_size + 1):
+            for itemset in combinations(sorted_transaction, itemset_size):
+                frozen_itemset = frozenset(itemset)
+                item_counts[frozen_itemset] = item_counts.get(frozen_itemset, 0) + 1
 
     return _filter_by_min_support_count(item_counts)
-
-
-def _generate_candidates(
-    previous_frequent_itemsets: set[frozenset[int]],
-    itemset_size: int,
-) -> set[frozenset[int]]:
-    candidates = set()
-    previous_items = sorted(previous_frequent_itemsets, key=lambda item: sorted(item))
-
-    for left_index, left in enumerate(previous_items):
-        for right in previous_items[left_index + 1:]:
-            candidate = left | right
-
-            if len(candidate) != itemset_size:
-                continue
-
-            if _all_subsets_frequent(candidate, previous_frequent_itemsets):
-                candidates.add(candidate)
-
-    return candidates
-
-
-def _all_subsets_frequent(
-    candidate: frozenset[int],
-    previous_frequent_itemsets: set[frozenset[int]],
-) -> bool:
-    return all(
-        frozenset(subset) in previous_frequent_itemsets
-        for subset in combinations(candidate, len(candidate) - 1)
-    )
-
-
-def _count_frequent_candidates(
-    transactions: list[set[int]],
-    candidates: set[frozenset[int]],
-) -> dict[frozenset[int], int]:
-    candidate_counts = {}
-
-    for transaction in transactions:
-        for candidate in candidates:
-            if candidate.issubset(transaction):
-                candidate_counts[candidate] = candidate_counts.get(candidate, 0) + 1
-
-    return _filter_by_min_support_count(candidate_counts)
 
 
 def _filter_by_min_support_count(
