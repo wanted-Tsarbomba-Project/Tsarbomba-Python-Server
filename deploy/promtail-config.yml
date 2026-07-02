@@ -22,3 +22,6 @@ scrape_configs:
         target_label: container
       - target_label: host
         replacement: chatbot-ec2
+      # Spring(job=lms)과 라벨 체계 통일 → {job=~"lms|chatbot"} |= "traceId" 로 양쪽 로그 통합 조회.
+      - target_label: job
+        replacement: chatbot
