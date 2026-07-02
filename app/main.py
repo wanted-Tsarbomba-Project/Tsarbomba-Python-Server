@@ -1,8 +1,20 @@
+import logging
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.chatbot.api.chat_router import router
 from app.monitoring.api.monitoring_router import router as monitoring_router
 from app.recommendation.api.recommendation_router import router as recommendation_router
+
+# 앱 로거(app.*)의 INFO 로그를 stdout 으로 흘린다.
+# uvicorn 은 자기 로거만 설정해서, 이게 없으면 logger.info(chatbot_chat_started 등)가
+# root(WARNING·핸들러 없음)에서 전부 버려진다 → docker/Loki 에 안 남고 trace_id 추적 불가.
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 
 app = FastAPI(
     title="tsarbomba ChatBot API",
