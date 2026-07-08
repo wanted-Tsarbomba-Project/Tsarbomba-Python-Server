@@ -72,8 +72,8 @@ def generate_apriori_recommendations(
             recommendation_count=recommendation_count,
         )
 
-        # 응답에 포함되는 사용자는 프론트 계약상 항상 요청 개수만큼 추천을 가진다.
-        if len(recommendations) == recommendation_count:
+        # 최대 recommendation_count개까지 추천하되, 후보가 그보다 적으면 있는 만큼만 포함한다.
+        if recommendations:
             recommendations_by_user[user_id] = recommendations
 
     _record_stage_duration("user_pick", scale_users, perf_counter() - started_at)
