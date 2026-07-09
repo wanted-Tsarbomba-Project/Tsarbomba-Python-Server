@@ -3,7 +3,7 @@
 # ECR_REGISTRY 는 GitHub Actions ssh 스텝에서 export 해서 주입한다.
 services:
   chatbot:
-    image: ${ECR_REGISTRY}/codebomb-chatbot:latest
+    image: ${ECR_REGISTRY}/team05/python:latest
     container_name: lms-chatbot
     env_file: .env                 # GEMINI_API_KEY, db_* 등 (EC2에만 존재)
     ports:
