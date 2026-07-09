@@ -12,8 +12,8 @@ concurrency:
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPO: team05-01-chatbot
-  S3_PREFIX: s3://team05-01-deploy-0708/chatbot/
+  ECR_REPO: team05/python
+  S3_PREFIX: s3://team05-01-deploy-0708-635249349258-ap-northeast-2-an/chatbot/
   EC2_NAME_TAG: team05-01-python        # ⚠️ 파이썬 박스의 실제 Name 태그와 일치해야 함
 
 jobs:
