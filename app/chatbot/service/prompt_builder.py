@@ -32,12 +32,19 @@ def _build_problem_prompt(request: ChatRequest, max_length: int) -> str:
     if request.session_progress:
         current_problem_number = request.session_progress.current_problem_number
 
-    # dataset.meta_data JSON string → 리스트로 파싱
-    dataset_columns: list[str] = []
+    # dataset.meta_data JSON string → 컬럼 객체 리스트로 파싱
+    # 계약: {"columns": [{"name": ..., "examples": [...]}]}
+    dataset_columns: list[dict] = []
     if request.dataset:
         try:
-            dataset_columns = json.loads(request.dataset.meta_data)
-        except (json.JSONDecodeError, TypeError):
+            parsed = json.loads(request.dataset.meta_data)
+            columns = parsed.get("columns", []) if isinstance(parsed, dict) else []
+            dataset_columns = [
+                {"name": c.get("name", ""), "examples": c.get("examples", [])}
+                for c in columns
+                if isinstance(c, dict) and c.get("name")
+            ]
+        except (json.JSONDecodeError, TypeError, AttributeError):
             dataset_columns = []
 
     return template.render(
