@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     db_name: str = ""
     db_username: str = ""
     db_password: str = ""
+    # opschat 도구 → Spring 내부 API (/internal/ops/*) 호출용
+    spring_base_url: str = "http://localhost:8080"
+    internal_api_token: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
