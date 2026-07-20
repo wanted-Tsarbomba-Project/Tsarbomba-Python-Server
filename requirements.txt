@@ -4,6 +4,8 @@ pydantic
 pydantic-settings
 python-dotenv
 google-genai
+chromadb
+sqlalchemy
 jinja2
 pymysql
 cryptography

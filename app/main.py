@@ -7,6 +7,8 @@ from app.chatbot.api.chat_router import router
 from app.monitoring.api.monitoring_router import router as monitoring_router
 from app.monitoring.http import HttpMetricsMiddleware
 from app.recommendation.api.recommendation_router import router as recommendation_router
+from app.learning.api.learning_router import router as learning_router
+from app.learning.repository.vector_store import learning_problem_set_vector_store
 
 # 앱 로거(app.*)의 INFO 로그를 stdout 으로 흘린다.
 # uvicorn 은 자기 로거만 설정해서, 이게 없으면 logger.info(chatbot_chat_started 등)가
@@ -35,9 +37,15 @@ app.add_middleware(HttpMetricsMiddleware)
 
 app.include_router(router)
 app.include_router(recommendation_router)
+app.include_router(learning_router)
 app.include_router(monitoring_router)
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    index_status, problem_set_count = learning_problem_set_vector_store.health()
+    return {
+        "status": "ok",
+        "learningIndexStatus": index_status,
+        "learningProblemSets": problem_set_count,
+    }
