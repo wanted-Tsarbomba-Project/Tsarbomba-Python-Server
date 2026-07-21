@@ -1,0 +1,33 @@
+### 문제세트 초안 생성
+POST http://localhost:8000/problem-set-draft/chat
+Content-Type: application/json
+
+{
+  "question": "이 CSV 데이터셋으로 pandas 기초 문제세트를 만들어줘. 소문제는 3개 이상으로 구성해줘.",
+  "operator_id": 1,
+  "dataset_url": "C:/Users/user/Downloads/SW기술자_평균임금_20260712223319.csv",
+  "data_file_name": "SW기술자_평균임금_20260712223319.csv",
+  "topic": "SW기술자 평균임금 분석",
+  "category_name": "공공 데이터",
+  "difficulty": "EASY",
+  "problem_count": 1,
+  "sub_problem_count": 3,
+  "history": []
+}
+
+### 문제세트 초안 생성 - camelCase 요청도 허용
+POST http://localhost:8000/problem-set-draft/chat
+Content-Type: application/json
+
+{
+  "question": "이 CSV 데이터셋으로 쉬운 난이도 문제세트를 만들어줘.",
+  "operatorId": 1,
+  "datasetUrl": "C:/Users/user/Downloads/SW기술자_평균임금_20260712223319.csv",
+  "dataFileName": "SW기술자_평균임금_20260712223319.csv",
+  "topic": "SW기술자 평균임금 분석",
+  "categoryName": "공공 데이터",
+  "difficulty": "EASY",
+  "problemCount": 1,
+  "subProblemCount": 3,
+  "history": []
+}
