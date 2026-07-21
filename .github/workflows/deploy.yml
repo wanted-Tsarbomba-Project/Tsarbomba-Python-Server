@@ -53,6 +53,8 @@ jobs:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_REASON_MODEL: ${{ vars.GEMINI_REASON_MODEL || vars.GEMINI_MODEL }}
+          LEARNING_EMBEDDING_TIMEOUT_MS: ${{ vars.LEARNING_EMBEDDING_TIMEOUT_MS }}
           DEFAULT_MAX_LENGTH: ${{ vars.DEFAULT_MAX_LENGTH }}
           DB_HOST: ${{ vars.DB_HOST }}
           DB_PORT: ${{ vars.DB_PORT }}
@@ -63,7 +65,8 @@ jobs:
           set -euo pipefail
           umask 077
           : > deploy.env
-          for k in ECR_REGISTRY GEMINI_API_KEY GEMINI_MODEL DEFAULT_MAX_LENGTH \
+          for k in ECR_REGISTRY GEMINI_API_KEY GEMINI_MODEL GEMINI_REASON_MODEL \
+                   LEARNING_EMBEDDING_TIMEOUT_MS DEFAULT_MAX_LENGTH \
                    DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD; do
             v="${!k}"
             [ -n "$v" ] && printf '%s=%s\n' "$k" "$v" >> deploy.env
@@ -86,7 +89,9 @@ jobs:
           echo "대상 인스턴스: $INSTANCE_ID"
           if [ -z "$INSTANCE_ID" ]; then echo "running 인스턴스 없음"; exit 1; fi
 
-          # EC2 명령: S3에서 .env·compose 받기 → ECR 로그인 → compose up → 헬스체크 (시크릿은 S3의 .env에만)
+          # EC2 명령: S3에서 .env·compose 받기 → ECR 로그인 → Chroma 동기화 → compose up → 헬스체크
+          # 기존 chatbot은 계속 요청을 처리하고, 쓰기 작업은 일회성 ingestion 컨테이너 하나만 수행한다.
+          # ingestion이 실패하면 set -e로 배포만 중단되므로 기존 chatbot은 영향 없이 계속 실행된다.
           cat > params.json <<EOF
           {"commands":[
             "set -e",
@@ -97,9 +102,10 @@ jobs:
             "chmod 600 .env 2>/dev/null || true",
             "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY",
             "docker compose pull",
+            "docker compose run --rm --no-deps chatbot python -m ingestion.run_ingest",
             "docker compose up -d",
-            "echo '헬스 체크: localhost:8000/health 대기...'",
-            "for i in \$(seq 1 30); do curl -fs -o /dev/null http://localhost:8000/health && { echo 'OK: health 200'; break; }; [ \$i -eq 30 ] && { echo 'FAIL: 60초 후에도 무응답'; docker compose logs --tail 50; exit 1; }; sleep 2; done",
+            "echo '준비 상태 확인: localhost:8000/ready 대기...'",
+            "for i in \$(seq 1 30); do curl -fs -o /dev/null http://localhost:8000/ready && { echo 'OK: Chroma ready'; break; }; [ \$i -eq 30 ] && { echo 'FAIL: 60초 후에도 Chroma가 준비되지 않음'; docker compose logs --tail 50; exit 1; }; sleep 2; done",
             "docker image prune -f"
           ]}
           EOF
