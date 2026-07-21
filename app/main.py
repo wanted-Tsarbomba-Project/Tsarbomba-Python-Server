@@ -4,6 +4,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.chatbot.api.chat_router import router
+from app.inquiry.router.inquiry_router import router as inquiry_router
 from app.monitoring.api.monitoring_router import router as monitoring_router
 from app.monitoring.http import HttpMetricsMiddleware
 from app.recommendation.api.recommendation_router import router as recommendation_router
@@ -35,6 +36,7 @@ app.add_middleware(HttpMetricsMiddleware)
 
 app.include_router(router)
 app.include_router(recommendation_router)
+app.include_router(inquiry_router)
 app.include_router(monitoring_router)
 
 
