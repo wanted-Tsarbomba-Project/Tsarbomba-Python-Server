@@ -8,6 +8,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-3.5-flash"
+    gemini_reason_model: str = "gemini-3.5-flash"
+    gemini_embedding_model: str = "gemini-embedding-001"
+    gemini_embedding_dimension: int = Field(default=3072, gt=0)
+    learning_reason_timeout_ms: int = Field(default=10000, ge=10000)
+    mysql_url: str | None = None
+    chroma_persist_directory: str = Field(
+        default=".chroma/learning",
+        min_length=1,
+    )
+    learning_problem_set_collection: str = Field(
+        default="learning_problem_sets_gemini_embedding_001_3072",
+        min_length=1,
+    )
+    learning_vector_candidate_count: int = Field(default=50, gt=0)
+    learning_embedding_batch_size: int = Field(default=50, gt=0)
     default_max_length: int = 3000
     db_host: str = "localhost"
     db_port: int = 3306

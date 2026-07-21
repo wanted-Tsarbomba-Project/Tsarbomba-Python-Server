@@ -118,9 +118,6 @@ def _batches(items: list[T], batch_size: int) -> list[list[T]]:
 
 def run_ingestion() -> dict[str, int]:
     settings = get_settings()
-    if not settings.mysql_url:
-        raise RuntimeError(MYSQL_URL_REQUIRED_MESSAGE)
-
     rows = fetch_active_problem_sets()
     records = validate_problem_set_rows(rows)
 

@@ -146,9 +146,13 @@ _SYSTEM_INSTRUCTION = """
 변경하거나 새로 판단하지 마세요. 제공된 사실만 사용하고 문제 세트명을 원문 그대로 포함하세요.
 마크다운, 목록, 이모지, 수치 추측, 특정 개념이 취약하다는 단정은 사용하지 마세요.
 
+REVIEW_WEAK_AREA와 LEVEL_MATCHED는 candidateDifficulty 값을 원문 그대로 문장에 포함하세요.
+NEXT_DIFFICULTY는 targetDifficulty와 candidateDifficulty 값을 모두 원문 그대로 포함하세요.
+
 COURSE_RELATED는 강좌명과 문제 세트명을 정확히 쓰고 강좌 내용과의 관련성을 표현하세요.
 REVIEW_WEAK_AREA에서 reviewEvidence가 EXPLANATION_DEPENDENCY이면 MAIN 문제에서 해설을
-자주 확인한 사실과 직접 풀이 보강을 위한 복습 목적을 표현하세요. LOW_PROFICIENCY이면
+자주 확인한 사실과 직접 풀이 보강을 위한 복습 목적을 표현하고, 문장에 "해설", "직접 풀이",
+"복습"이라는 표현을 각각 문자 그대로 포함하세요. LOW_PROFICIENCY이면
 전체 학습 결과에 따른 기초 또는 학습 보강 목적만 표현하고 해설을 언급하지 마세요.
 LEVEL_MATCHED는 후보 난이도가 현재 학습 수준에 적합함을 표현하세요.
 NEXT_DIFFICULTY는 목표 난이도보다 후보 난이도가 한 단계 높고 다음 단계 도전용임을 표현하세요.
@@ -342,7 +346,11 @@ def generate_recommendation_reasons(
                 candidate_count=1,
                 seed=0,
                 top_p=0.1,
-                max_output_tokens=1024,
+                max_output_tokens=2048,
+                thinking_config=types.ThinkingConfig(
+                    thinking_level=types.ThinkingLevel.MINIMAL,
+                    include_thoughts=False,
+                ),
                 response_mime_type="application/json",
                 response_schema=_GeminiReasonResponseSchema,
             ),
