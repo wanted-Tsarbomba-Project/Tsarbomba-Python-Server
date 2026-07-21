@@ -9,4 +9,3 @@ venv/
 dist/
 build/
 .pytest_cache/
-.env.example
