@@ -14,11 +14,13 @@ def build_problem_set_embedding_text(
     description: str | None,
     difficulty: str,
 ) -> str:
-    parts = [f"문제세트 제목: {title.strip()}"]
+    parts = [
+        f"문제세트 제목: {title.strip()}",
+        f"난이도: {difficulty}",
+    ]
     normalized_description = normalize_description(description)
     if normalized_description:
         parts.append(f"문제세트 설명: {normalized_description}")
-    parts.append(f"난이도: {difficulty}")
     return "\n".join(parts)[:MAX_EMBEDDING_TEXT_LENGTH]
 
 

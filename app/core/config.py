@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     gemini_reason_model: str = "gemini-3.5-flash"
     gemini_embedding_model: str = "gemini-embedding-001"
     gemini_embedding_dimension: int = Field(default=3072, gt=0)
-    learning_reason_timeout_ms: int = Field(default=10000, ge=10000)
+    learning_reason_timeout_ms: int = Field(default=10000, gt=0)
+    learning_embedding_timeout_ms: int = Field(default=10000, gt=0)
     mysql_url: str | None = None
     chroma_persist_directory: str = Field(
         default=".chroma/learning",

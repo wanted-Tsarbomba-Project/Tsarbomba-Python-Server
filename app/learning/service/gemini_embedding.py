@@ -16,7 +16,13 @@ class GeminiEmbeddingError(RuntimeError):
 
 @lru_cache()
 def _get_client() -> genai.Client:
-    return genai.Client(api_key=get_settings().gemini_api_key)
+    settings = get_settings()
+    return genai.Client(
+        api_key=settings.gemini_api_key,
+        http_options=types.HttpOptions(
+            timeout=settings.learning_embedding_timeout_ms,
+        ),
+    )
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
