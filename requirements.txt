@@ -10,7 +10,7 @@ jinja2
 pymysql
 cryptography
 prometheus-client
+httpx
 
 # dev
 pytest
-httpx

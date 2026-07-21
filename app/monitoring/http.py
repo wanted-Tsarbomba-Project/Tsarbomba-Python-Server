@@ -9,6 +9,7 @@ from app.monitoring.metrics import HTTP_REQUEST_DURATION_SECONDS, HTTP_REQUESTS_
 # app/chatbot -> "chatbot", app/recommendation -> "recommendation", 그 외(health, metrics 등) -> "system"
 _DOMAIN_PREFIXES = (
     ("/internal/recommendations", "recommendation"),
+    ("/ops-chat", "opschat"),
     ("/chat", "chatbot"),
 )
 
