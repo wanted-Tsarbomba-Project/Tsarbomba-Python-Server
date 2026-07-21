@@ -36,7 +36,16 @@ def generate_analysis(prompt: str) -> InquiryAnalysisResponse:
         raise InquiryAnalysisError("Gemini 호출 실패") from exc
 
     try:
-        return InquiryAnalysisResponse.model_validate_json(response.text)
+        # response.text는 안전 필터 등으로 유효한 텍스트가 없으면 ValueError를 던진다.
+        # 아래에서 두 번 접근하면(파싱 실패 로깅 시) 같은 예외가 또 발생해 502 대신
+        # 처리되지 않은 500으로 이어지므로, 먼저 지역 변수로 한 번만 안전하게 꺼내둔다.
+        raw_text = response.text
+    except ValueError as exc:
+        logger.warning("event=inquiry_gemini_empty_response")
+        raise InquiryAnalysisError("Gemini 응답에 유효한 텍스트가 없습니다") from exc
+
+    try:
+        return InquiryAnalysisResponse.model_validate_json(raw_text)
     except (ValueError, ValidationError) as exc:
-        logger.warning("event=inquiry_gemini_parse_failed rawText=%s", response.text)
+        logger.warning("event=inquiry_gemini_parse_failed rawText=%s", raw_text)
         raise InquiryAnalysisError("Gemini 응답 파싱 실패") from exc

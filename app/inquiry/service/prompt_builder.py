@@ -63,17 +63,25 @@ def _build_correction_section(correction_examples: list[CorrectionExample]) -> s
     # "표현이 비슷하면 같은 결론"이라는 규칙 매칭으로 읽히지 않도록,
     # 사례의 결론(ai_value → corrected_value) 자체가 아니라 관리자가 남긴
     # 판단 기준(reason)을 이해해서 이번 문의에 맞게 스스로 판단하도록 지시한다.
+    # 사례는 호출부(UserInquiryCommandService)에서 이미 updated_at DESC로 정렬해서 넘겨주므로,
+    # 목록 순서 자체가 "최신순"이라는 걸 프롬프트에 명시해 모순되는 사례의 우선순위 기준을 준다.
+    # ai_value/reason은 Optional이라 None이면 f-string이 그대로 'None' 문자열을 박아넣는다.
+    # Gemini가 이걸 진짜 값/사유로 오해하지 않도록 한국어 기본값으로 폴백한다.
     lines = [
-        f"- {example.field_name} 관련: 관리자는 '{example.reason}'라는 기준으로 "
-        f"'{example.ai_value}' 대신 '{example.corrected_value}'가 맞다고 판단함"
-        for example in correction_examples
+        f"- (최근 {index}번째) {example.field_name} 관련: 관리자는 "
+        f"'{example.reason or '사유 없음'}'라는 기준으로 "
+        f"'{example.ai_value or '알 수 없음'}' 대신 '{example.corrected_value}'가 맞다고 판단함"
+        for index, example in enumerate(correction_examples, start=1)
     ]
     return (
-        "[관리자 보정 사례]\n"
+        "[관리자 보정 사례 — 최신순 정렬, (최근 1번째)가 가장 최근]\n"
         "아래는 과거 AI 판단과 관리자의 최종 판단이 달랐던 사례다. "
         "문의 표현이 비슷하다고 기계적으로 같은 결론을 내리지 마라. "
         "각 사례에서 관리자가 어떤 기준(이유)으로 판단했는지를 이해하고, "
         "그 기준이 이번 문의에도 실제로 적용되는지 스스로 판단해서 반영해라. "
-        "기준이 적용되지 않는 새로운 상황이면 사례를 억지로 끼워 맞추지 말고 독립적으로 판단해라.\n"
+        "기준이 적용되지 않는 새로운 상황이면 사례를 억지로 끼워 맞추지 말고 독립적으로 판단해라. "
+        "같은 항목(field)에 대해 서로 모순되는 사례가 있다면, 관리자의 최근 정책 변경으로 보고 "
+        "더 최근 사례(번호가 작은 쪽)를 우선하되, 이번 문의가 그 최근 사례와 다르게 봐야 할 "
+        "구체적 근거가 있다면 그 근거를 따라라.\n"
         + "\n".join(lines) + "\n\n"
     )
