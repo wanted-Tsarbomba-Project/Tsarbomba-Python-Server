@@ -1,11 +1,11 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app import main as main_module
 from app.monitoring.metrics import HTTP_REQUESTS_TOTAL
 from app.recommendation.api import recommendation_router
 from app.recommendation.service.repository import RecommendationRepositoryError
 
-client = TestClient(app)
+client = TestClient(main_module.app)
 
 
 def _count(domain: str, method: str, api: str, status: str) -> float:
@@ -17,6 +17,36 @@ def test_health_check_is_labeled_as_system():
     response = client.get("/health")
     assert response.status_code == 200
     assert _count("system", "GET", "/health", "200") == before + 1
+
+
+def test_readiness_returns_503_when_learning_index_is_empty(monkeypatch):
+    monkeypatch.setattr(
+        main_module.learning_problem_set_vector_store,
+        "health",
+        lambda: ("degraded", 0),
+    )
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["learningProblemSets"] == 0
+
+
+def test_readiness_returns_200_when_learning_index_has_records(monkeypatch):
+    monkeypatch.setattr(
+        main_module.learning_problem_set_vector_store,
+        "health",
+        lambda: ("ready", 30),
+    )
+
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "learningIndexStatus": "ready",
+        "learningProblemSets": 30,
+    }
 
 
 def test_recommendation_5xx_is_labeled_as_recommendation_domain(monkeypatch):

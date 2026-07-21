@@ -22,6 +22,9 @@ from ingestion.mysql_reader import (
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
+EMPTY_PROBLEM_SET_RESULT_MESSAGE = (
+    "No ACTIVE problem sets found; existing Chroma index was preserved"
+)
 
 
 class IngestionDataError(ValueError):
@@ -119,6 +122,8 @@ def _batches(items: list[T], batch_size: int) -> list[list[T]]:
 def run_ingestion() -> dict[str, int]:
     settings = get_settings()
     rows = fetch_active_problem_sets()
+    if not rows:
+        raise RuntimeError(EMPTY_PROBLEM_SET_RESULT_MESSAGE)
     records = validate_problem_set_rows(rows)
 
     vector_store = LearningProblemSetVectorStore()
@@ -194,6 +199,12 @@ def main() -> None:
             logger.error(
                 "event=problem_set_ingestion_failed reason=mysql_url_missing message=%s",
                 MYSQL_URL_REQUIRED_MESSAGE,
+            )
+        elif str(exc) == EMPTY_PROBLEM_SET_RESULT_MESSAGE:
+            logger.error(
+                "event=problem_set_ingestion_failed reason=no_active_problem_sets "
+                "message=%s",
+                EMPTY_PROBLEM_SET_RESULT_MESSAGE,
             )
         else:
             logger.error(

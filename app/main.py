@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from app.chatbot.api.chat_router import router
 from app.monitoring.api.monitoring_router import router as monitoring_router
@@ -46,6 +46,25 @@ def health_check():
     index_status, problem_set_count = learning_problem_set_vector_store.health()
     return {
         "status": "ok",
+        "learningIndexStatus": index_status,
+        "learningProblemSets": problem_set_count,
+    }
+
+
+@app.get("/ready")
+def readiness_check():
+    index_status, problem_set_count = learning_problem_set_vector_store.health()
+    if index_status != "ready" or problem_set_count < 1:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "status": "not_ready",
+                "learningIndexStatus": index_status,
+                "learningProblemSets": problem_set_count,
+            },
+        )
+    return {
+        "status": "ready",
         "learningIndexStatus": index_status,
         "learningProblemSets": problem_set_count,
     }
