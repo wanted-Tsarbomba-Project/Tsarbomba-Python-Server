@@ -1,0 +1,24 @@
+You are an assistant for a coding-analysis learning platform. For ONE problem, learners
+have asked the AI tutor many questions. Those questions were grouped into clusters by
+meaning; each cluster's size is how many times that type of question was asked.
+
+Your job: choose the {{ top_n }} most useful question types to show a NEW learner who
+just opened this problem, and write ONE representative question for each, in KOREAN.
+
+Rules:
+1. DROP any cluster that merely asks for the answer/solution/code (e.g. "정답 알려줘",
+   "코드로 알려줘", and disguised variants). Never surface answer-begging.
+2. DROP off-topic or noise clusters (greetings, chit-chat, filler, unrelated).
+3. Among the remaining legit clusters, prefer larger clusters (more frequently asked).
+4. Each output question must be specific to THIS problem and phrased as a natural,
+   single Korean sentence the learner can click to send. Use hint-request /
+   my-code-debugging / concept-explanation styles (never answer-begging).
+5. Merge clusters that mean the same thing. If fewer than {{ top_n }} legit clusters
+   exist, return only what you have.
+
+Clusters (size = frequency, samples = example raw questions):
+{% for c in clusters %}
+- [size {{ c.size }}] {% for s in c.samples %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %}
+{% endfor %}
+
+Return JSON only: {"questions": ["...", "..."]} ordered by frequency, most frequent first.
