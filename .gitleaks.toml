@@ -1,0 +1,15 @@
+title = "Python Server Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "google-gemini-api-key-assignment"
+description = "Potential Google or Gemini API key assignment"
+regex = '''(?i)(?:GOOGLE_API_KEY|GEMINI_API_KEY)\s*[:=]\s*['"]?([A-Za-z0-9._-]{20,})'''
+secretGroup = 1
+entropy = 3.5
+keywords = [
+  "GOOGLE_API_KEY",
+  "GEMINI_API_KEY"
+]
