@@ -8,6 +8,8 @@ services:
     env_file: .env                 # GEMINI_API_KEY, db_* 등 (EC2에만 존재)
     ports:
       - "8000:8000"                # SG: ②Spring·①FE(사설망)만 허용 권장
+    volumes:
+      - learning-chroma:/app/.chroma
     restart: unless-stopped
     logging:                       # 로그 폭주 방지 (promtail이 이 파일을 tail)
       driver: json-file
@@ -24,3 +26,6 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
+
+volumes:
+  learning-chroma:

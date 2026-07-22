@@ -35,13 +35,13 @@ If the user has NOT submitted an answer:
   - Guide them on what kind of function, method, or attribute to look for — without naming it.
   For TEXT type:
   - Suggest a thinking angle or key comparison point to get them started — without giving away the answer.
-{% if dataset %}
+{% if dataset_columns %}
 
 [DATASET INFORMATION]
-The following columns are available in the dataset. Only reference columns that exist in this list.
-Use this to help the user understand what data is available and guide them toward relevant columns.
+The dataset has the following columns, each with example values from the actual data. Only reference columns that exist in this list.
+Use the example values to infer each column's data type and format, and to guide the user toward relevant columns with concrete pandas operations.
 {% for col in dataset_columns %}
-- {{ col }}
+- {{ col.name }}{{ " (e.g. " ~ (col.examples | join(", ")) ~ ")" if col.examples else "" }}
 {% endfor %}
 {% endif %}
 

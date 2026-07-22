@@ -169,26 +169,27 @@ contents.append({"role": "user", "parts": [{"text": current_text}]})
 
 ### 5.4 dataset.meta_data 파싱
 
-DB에서 JSON string으로 옵니다. 파싱하여 리스트로 변환 후 템플릿에 전달합니다.
+DB에서 JSON string으로 옵니다. 계약은 **컬럼명 + 예시값** 객체입니다(BE `DatasetMetadataExtractor`가 업로드 시 CSV에서 추출).
 
 ```python
 import json
 
-# 입력: "[\"id\", \"name\", \"age\", \"score\"]"
-# 출력: ["id", "name", "age", "score"]
-columns = json.loads(dataset.meta_data)
+# 입력: '{"columns": [{"name": "country", "examples": ["KR", "US", "JP"]}, ...]}'
+parsed = json.loads(dataset.meta_data)
+columns = parsed.get("columns", []) if isinstance(parsed, dict) else []
+# 출력: [{"name": "country", "examples": ["KR", "US", "JP"]}, ...]
 ```
 
-템플릿에서 줄바꿈 리스트로 렌더링:
+템플릿에서 컬럼명 + 예시값을 줄바꿈 리스트로 렌더링:
 
 ```jinja2
 [Dataset Columns]
 {% for col in columns %}
-- {{ col }}
+- {{ col.name }}{% if col.examples %} (e.g. {{ col.examples | join(', ') }}){% endif %}
 {% endfor %}
 ```
 
-**이유**: JSON 배열 형태보다 줄바꿈 리스트가 AI의 attention이 각 컬럼에 고르게 분산됩니다. JSON string은 하나의 덩어리로 처리되어 개별 컬럼 인식이 약해집니다.
+**이유**: 줄바꿈 리스트가 AI의 attention을 각 컬럼에 고르게 분산시킵니다. 예시값을 함께 주면 LLM이 컬럼의 데이터 타입·형식을 추론해 구체적인 pandas 힌트를 유도할 수 있습니다(dtype은 명시하지 않고 예시값으로만 전달).
 
 ---
 

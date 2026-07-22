@@ -4,8 +4,8 @@ __pycache__/
 *.pyo
 venv/
 .venv/
+.chroma/
 *.egg-info/
 dist/
 build/
 .pytest_cache/
-.env.example
