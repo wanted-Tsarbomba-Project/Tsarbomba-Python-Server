@@ -1,78 +1,40 @@
-﻿import csv
+import csv
+import io
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
-from core.config import get_settings
+from app.problemset.core.config import get_settings
 
 
 def analyze_csv_dataset(dataset_url: str, data_file_name: str | None = None) -> dict[str, Any]:
-    loaded = _load_csv_text(dataset_url)
-    if "error" in loaded:
-        return loaded
+    """
+    Signed URL 또는 허용된 로컬 경로의 CSV 데이터셋을 일부만 읽어 문제 생성에 필요한 메타데이터를 반환한다.
 
-    rows = _parse_csv_rows(loaded["text"])
-    if isinstance(rows, dict) and "error" in rows:
-        return rows
+    Gemini는 이 결과를 바탕으로 실제 컬럼명, 샘플 값, 인코딩을 확인한 뒤 문제와 테스트케이스 초안을 만든다.
+    """
+    if dataset_url.startswith(("http://", "https://")):
+        result = _read_csv_url(dataset_url)
+    else:
+        result = _read_csv_path(Path(dataset_url))
 
-    if not rows:
-        return {"error": "CSV 파일이 비어 있습니다."}
+    if "error" in result:
+        return result
 
-    header = [column.strip() for column in rows[0]]
-    data_rows = rows[1:]
-    sample_limit = min(len(data_rows), 20)
-
-    columns: list[dict[str, Any]] = []
-    for index, name in enumerate(header):
-        samples: list[str] = []
-        numeric_count = 0
-
-        for row in data_rows[:sample_limit]:
-            if index >= len(row):
-                continue
-
-            value = row[index].strip()
-            if not value:
-                continue
-
-            if value not in samples and len(samples) < 5:
-                samples.append(value[:100])
-
-            if _looks_numeric(value):
-                numeric_count += 1
-
-        columns.append(
-            {
-                "name": name,
-                "sample_values": samples,
-                "numeric_candidate": sample_limit > 0
-                and numeric_count >= max(1, sample_limit // 2),
-            }
-        )
-
-    return {
-        "file_name": data_file_name or infer_file_name(dataset_url),
-        "encoding": loaded["encoding"],
-        "row_count": len(data_rows),
-        "column_count": len(header),
-        "columns": columns,
-    }
+    result["data_file_name"] = data_file_name or infer_file_name(dataset_url)
+    return result
 
 
 def infer_file_name(dataset_url: str) -> str:
-    if dataset_url.startswith("http://") or dataset_url.startswith("https://"):
-        return "dataset.csv"
+    parsed = urlparse(dataset_url)
+    if parsed.scheme:
+        file_name = Path(parsed.path).name
+    else:
+        file_name = Path(dataset_url).name
 
-    return Path(dataset_url).name
-
-
-def _load_csv_text(dataset_url: str) -> dict[str, Any]:
-    if dataset_url.startswith("http://") or dataset_url.startswith("https://"):
-        return _read_csv_url(dataset_url)
-
-    return _read_csv_path(Path(dataset_url))
+    return file_name or "dataset.csv"
 
 
 def _read_csv_url(dataset_url: str) -> dict[str, Any]:
@@ -92,7 +54,6 @@ def _read_csv_url(dataset_url: str) -> dict[str, Any]:
                 remaining = settings.dataset_sample_max_bytes - len(content)
                 if remaining <= 0:
                     break
-
                 content.extend(chunk[:remaining])
 
         return _decode_csv_bytes(bytes(content), {"dataset_url": dataset_url})
@@ -116,7 +77,7 @@ def _read_csv_path(path: Path) -> dict[str, Any]:
     if not settings.allow_local_dataset_path:
         return {"error": "로컬 데이터셋 경로 접근은 허용되지 않습니다."}
 
-    safe_dir = Path(settings.safe_dataset_dir).expanduser().resolve()
+    safe_dir = Path(settings.safe_dataset_dir).resolve()
     resolved_path = path.expanduser().resolve()
 
     if not resolved_path.is_relative_to(safe_dir):
@@ -131,6 +92,63 @@ def _read_csv_path(path: Path) -> dict[str, Any]:
         content = file.read(settings.dataset_sample_max_bytes)
 
     return _decode_csv_bytes(content, {"dataset_path": str(resolved_path)})
+
+
+def _decode_csv_bytes(content: bytes, meta: dict[str, Any]) -> dict[str, Any]:
+    if not content:
+        return {"error": "데이터셋 내용이 비어 있습니다.", **meta}
+
+    for encoding in ("utf-8-sig", "utf-8", "cp949", "ms949", "euc-kr"):
+        try:
+            text = content.decode(encoding)
+            return _parse_csv_text(text, encoding, meta)
+        except UnicodeDecodeError:
+            continue
+
+    return {"error": "CSV 인코딩을 해석할 수 없습니다.", **meta}
+
+
+def _parse_csv_text(text: str, encoding: str, meta: dict[str, Any]) -> dict[str, Any]:
+    rows = list(csv.reader(io.StringIO(text)))
+    if not rows:
+        return {"error": "CSV 행을 읽을 수 없습니다.", "encoding": encoding, **meta}
+
+    columns = rows[0]
+    unique_columns = _make_unique_columns(columns)
+    sample_rows = rows[1:21]
+    sample_records = [_to_record(unique_columns, row) for row in sample_rows]
+
+    return {
+        **meta,
+        "encoding": encoding,
+        "column_count": len(columns),
+        "columns": columns,
+        "normalized_columns": unique_columns,
+        "sample_row_count": len(sample_rows),
+        "sample_rows": sample_rows,
+        "sample_records": sample_records,
+        "truncated": len(text.encode(encoding, errors="ignore")) >= get_settings().dataset_sample_max_bytes,
+    }
+
+
+def _make_unique_columns(columns: list[str]) -> list[str]:
+    seen: dict[str, int] = {}
+    result: list[str] = []
+
+    for index, column in enumerate(columns):
+        base = column.strip() or f"column_{index + 1}"
+        count = seen.get(base, 0)
+        seen[base] = count + 1
+        result.append(base if count == 0 else f"{base}.{count}")
+
+    return result
+
+
+def _to_record(columns: list[str], row: list[str]) -> dict[str, str]:
+    return {
+        column: row[index] if index < len(row) else ""
+        for index, column in enumerate(columns)
+    }
 
 
 def _validate_dataset_url(dataset_url: str) -> dict[str, Any] | None:
@@ -163,32 +181,3 @@ def _is_allowed_host(hostname: str, allowed_hosts: tuple[str, ...]) -> bool:
             return True
 
     return False
-
-
-def _decode_csv_bytes(content: bytes, context: dict[str, str]) -> dict[str, Any]:
-    for encoding in ("utf-8-sig", "utf-8", "cp949", "ms949"):
-        try:
-            return {"text": content.decode(encoding), "encoding": encoding}
-        except UnicodeDecodeError:
-            continue
-
-    return {
-        "error": "CSV 파일 인코딩을 해석할 수 없습니다.",
-        **context,
-    }
-
-
-def _parse_csv_rows(text: str) -> list[list[str]] | dict[str, str]:
-    try:
-        return list(csv.reader(text.splitlines()))
-    except csv.Error as exc:
-        return {"error": "CSV 파싱에 실패했습니다.", "detail": str(exc)}
-
-
-def _looks_numeric(value: str) -> bool:
-    normalized = value.replace(",", "").replace("%", "").strip()
-    try:
-        float(normalized)
-        return True
-    except ValueError:
-        return False

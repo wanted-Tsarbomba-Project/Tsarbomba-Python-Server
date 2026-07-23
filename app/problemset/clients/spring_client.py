@@ -2,7 +2,7 @@ from typing import Any
 
 import httpx
 
-from core.config import get_settings
+from app.problemset.core.config import get_settings
 
 
 def spring_get(path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
