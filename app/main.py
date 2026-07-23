@@ -7,15 +7,16 @@ from app.chatbot.api.chat_router import router
 from app.inquiry.router.inquiry_router import router as inquiry_router
 from app.monitoring.api.monitoring_router import router as monitoring_router
 from app.monitoring.http import HttpMetricsMiddleware
+from app.problemset.routers.problem_set_draft_router import router as problem_set_draft_router
 from app.opschat.api.opschat_router import router as opschat_router
 from app.recommendation.api.recommendation_router import router as recommendation_router
 from app.suggested_questions.api.suggested_questions_router import router as suggested_questions_router
 from app.learning.api.learning_router import router as learning_router
 from app.learning.repository.vector_store import learning_problem_set_vector_store
 
-# 앱 로거(app.*)의 INFO 로그를 stdout 으로 흘린다.
-# uvicorn 은 자기 로거만 설정해서, 이게 없으면 logger.info(chatbot_chat_started 등)가
-# root(WARNING·핸들러 없음)에서 전부 버려진다 → docker/Loki 에 안 남고 trace_id 추적 불가.
+# 앱 로거(app.*)의 INFO 로그를 stdout으로 보냅니다.
+# uvicorn은 자기 로거만 설정하므로, 별도 설정이 없으면 앱의 info 로그가 root(WARNING)에서 버려질 수 있습니다.
+# Docker/Loki에서 trace_id 기반으로 요청 흐름을 추적하기 위해 명시적으로 설정합니다.
 logging.basicConfig(
     level=logging.INFO,
     stream=sys.stdout,
@@ -23,8 +24,8 @@ logging.basicConfig(
 )
 
 app = FastAPI(
-    title="tsarbomba ChatBot API",
-    description="데이터 분석 튜터링 AI 챗봇 서버",
+    title="Tsarbomba ChatBot API",
+    description="데이터 분석 기반 LMS AI 챗봇 및 문제세트 초안 생성 서버",
     version="0.1.0",
 )
 
@@ -35,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# CORS까지 포함한 전체 요청/응답 사이클을 측정하기 위해 가장 바깥쪽 미들웨어로 추가한다.
+# CORS까지 포함한 전체 요청/응답 사이클을 측정하기 위해 가장 바깥쪽 미들웨어로 추가합니다.
 app.add_middleware(HttpMetricsMiddleware)
 
 app.include_router(router)
@@ -45,6 +46,7 @@ app.include_router(suggested_questions_router)
 app.include_router(learning_router)
 app.include_router(inquiry_router)
 app.include_router(monitoring_router)
+app.include_router(problem_set_draft_router)
 
 
 @app.get("/health")
