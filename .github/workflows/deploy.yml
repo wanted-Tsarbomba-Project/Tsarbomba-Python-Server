@@ -61,13 +61,16 @@ jobs:
           DB_NAME: ${{ vars.DB_NAME }}
           DB_USERNAME: ${{ vars.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SPRING_BASE_URL: ${{ vars.SPRING_BASE_URL }}
+          INTERNAL_API_TOKEN: ${{ secrets.INTERNAL_API_TOKEN }}
         run: |
           set -euo pipefail
           umask 077
           : > deploy.env
           for k in ECR_REGISTRY GEMINI_API_KEY GEMINI_MODEL GEMINI_REASON_MODEL \
                    LEARNING_EMBEDDING_TIMEOUT_MS DEFAULT_MAX_LENGTH \
-                   DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD; do
+                   DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD \
+                   SPRING_BASE_URL INTERNAL_API_TOKEN; do
             v="${!k}"
             [ -n "$v" ] && printf '%s=%s\n' "$k" "$v" >> deploy.env
           done

@@ -15,6 +15,11 @@ class ProblemInfo(BaseModel):
     answer: Optional[str] = None
     explanation: Optional[str] = None  # 해설 없는 문제 존재 가능 (Spring 이 null 로 보냄)
     submitted_answer: Optional[str] = None
+    # 최근 제출 채점 결과 (제출 이력 없으면 Spring 이 필드 생략 → None)
+    execution_status: Optional[str] = None  # ex) "WRONG_ANSWER", "CORRECT", "RUNTIME_ERROR"
+    passed_test_count: Optional[int] = None
+    total_test_count: Optional[int] = None
+    error_message: Optional[str] = None
 
 
 class SessionProgress(BaseModel):
