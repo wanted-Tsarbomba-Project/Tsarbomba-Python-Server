@@ -49,6 +49,20 @@ def _build_contents(request: ChatRequest) -> list[types.Content]:
         if submitted:
             prefix_parts.append("[Submitted answers]\n" + "\n".join(submitted))
 
+        # 최근 제출 채점 결과 — 변하는 값이라 system_instruction이 아닌 여기(contents)로.
+        results = []
+        for i, p in enumerate(request.problems):
+            if not p.execution_status:
+                continue
+            line = f"Problem #{i + 1} ({p.title}): {p.execution_status}"
+            if p.total_test_count:
+                line += f", passed {p.passed_test_count}/{p.total_test_count}"
+            if p.error_message:
+                line += f"\nerror: {p.error_message[:1000]}"
+            results.append(line)
+        if results:
+            prefix_parts.append("[Submission result]\n" + "\n".join(results))
+
     current_text = request.user_message
     if prefix_parts:
         current_text = "\n\n".join(prefix_parts) + "\n\n" + request.user_message
