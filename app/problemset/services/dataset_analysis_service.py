@@ -1,3 +1,4 @@
+import codecs
 import csv
 import io
 from pathlib import Path
@@ -9,11 +10,14 @@ import httpx
 from app.problemset.core.config import get_settings
 
 
+SUPPORTED_ENCODINGS = ("utf-8-sig", "utf-8", "cp949", "ms949", "euc-kr")
+
+
 def analyze_csv_dataset(dataset_url: str, data_file_name: str | None = None) -> dict[str, Any]:
     """
-    Signed URL 또는 허용된 로컬 경로의 CSV 데이터셋을 일부만 읽어 문제 생성에 필요한 메타데이터를 반환한다.
+    Signed URL 또는 허용된 로컬 경로의 CSV 데이터셋 일부만 읽어 문제 생성에 필요한 메타데이터를 반환한다.
 
-    Gemini는 이 결과를 바탕으로 실제 컬럼명, 샘플 값, 인코딩을 확인한 뒤 문제와 테스트케이스 초안을 만든다.
+    Gemini가 실제 컬럼명, 샘플 행, 인코딩 정보를 바탕으로 문제와 테스트케이스 초안을 만들 수 있게 한다.
     """
     if dataset_url.startswith(("http://", "https://")):
         result = _read_csv_url(dataset_url)
@@ -43,7 +47,8 @@ def _read_csv_url(dataset_url: str) -> dict[str, Any]:
         return validation_error
 
     settings = get_settings()
-    headers = {"Range": f"bytes=0-{settings.dataset_sample_max_bytes - 1}"}
+    max_bytes = settings.dataset_sample_max_bytes
+    headers = {"Range": f"bytes=0-{max_bytes}"}
 
     try:
         content = bytearray()
@@ -51,12 +56,13 @@ def _read_csv_url(dataset_url: str) -> dict[str, Any]:
             response.raise_for_status()
 
             for chunk in response.iter_bytes():
-                remaining = settings.dataset_sample_max_bytes - len(content)
+                remaining = max_bytes + 1 - len(content)
                 if remaining <= 0:
                     break
                 content.extend(chunk[:remaining])
 
-        return _decode_csv_bytes(bytes(content), {"dataset_url": dataset_url})
+        sample_bytes, truncated = _limit_sample_bytes(bytes(content), max_bytes)
+        return _decode_csv_bytes(sample_bytes, {"dataset_url": dataset_url}, truncated)
     except httpx.TimeoutException:
         return {"error": "데이터셋 URL 응답이 지연되고 있습니다."}
     except httpx.HTTPStatusError as exc:
@@ -77,7 +83,7 @@ def _read_csv_path(path: Path) -> dict[str, Any]:
     if not settings.allow_local_dataset_path:
         return {"error": "로컬 데이터셋 경로 접근은 허용되지 않습니다."}
 
-    safe_dir = Path(settings.safe_dataset_dir).resolve()
+    safe_dir = Path(settings.safe_dataset_dir).expanduser().resolve()
     resolved_path = path.expanduser().resolve()
 
     if not resolved_path.is_relative_to(safe_dir):
@@ -89,29 +95,48 @@ def _read_csv_path(path: Path) -> dict[str, Any]:
         return {"error": "데이터셋 경로가 파일이 아닙니다.", "dataset_path": str(resolved_path)}
 
     with resolved_path.open("rb") as file:
-        content = file.read(settings.dataset_sample_max_bytes)
+        raw_content = file.read(settings.dataset_sample_max_bytes + 1)
 
-    return _decode_csv_bytes(content, {"dataset_path": str(resolved_path)})
+    sample_bytes, truncated = _limit_sample_bytes(raw_content, settings.dataset_sample_max_bytes)
+    return _decode_csv_bytes(sample_bytes, {"dataset_path": str(resolved_path)}, truncated)
 
 
-def _decode_csv_bytes(content: bytes, meta: dict[str, Any]) -> dict[str, Any]:
+def _limit_sample_bytes(content: bytes, max_bytes: int) -> tuple[bytes, bool]:
+    truncated = len(content) > max_bytes
+    return content[:max_bytes], truncated
+
+
+def _decode_csv_bytes(content: bytes, meta: dict[str, Any], truncated: bool) -> dict[str, Any]:
     if not content:
         return {"error": "데이터셋 내용이 비어 있습니다.", **meta}
 
-    for encoding in ("utf-8-sig", "utf-8", "cp949", "ms949", "euc-kr"):
+    for encoding in SUPPORTED_ENCODINGS:
         try:
-            text = content.decode(encoding)
-            return _parse_csv_text(text, encoding, meta)
+            text = _decode_sample_bytes(content, encoding, truncated)
+            return _parse_csv_text(text, encoding, meta, truncated)
         except UnicodeDecodeError:
             continue
 
-    return {"error": "CSV 인코딩을 해석할 수 없습니다.", **meta}
+    return {"error": "CSV 인코딩을 해석할 수 없습니다.", **meta, "truncated": truncated}
 
 
-def _parse_csv_text(text: str, encoding: str, meta: dict[str, Any]) -> dict[str, Any]:
+def _decode_sample_bytes(content: bytes, encoding: str, truncated: bool) -> str:
+    decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
+
+    # 잘린 샘플은 끝의 불완전한 멀티바이트 문자만 버퍼에 남기고 정상 부분을 반환한다.
+    # 잘리지 않은 샘플은 final=True로 엄격하게 검증해 실제 인코딩 오류를 숨기지 않는다.
+    return decoder.decode(content, final=not truncated)
+
+
+def _parse_csv_text(
+    text: str,
+    encoding: str,
+    meta: dict[str, Any],
+    truncated: bool,
+) -> dict[str, Any]:
     rows = list(csv.reader(io.StringIO(text)))
     if not rows:
-        return {"error": "CSV 행을 읽을 수 없습니다.", "encoding": encoding, **meta}
+        return {"error": "CSV 행을 읽을 수 없습니다.", "encoding": encoding, **meta, "truncated": truncated}
 
     columns = rows[0]
     unique_columns = _make_unique_columns(columns)
@@ -127,7 +152,7 @@ def _parse_csv_text(text: str, encoding: str, meta: dict[str, Any]) -> dict[str,
         "sample_row_count": len(sample_rows),
         "sample_rows": sample_rows,
         "sample_records": sample_records,
-        "truncated": len(text.encode(encoding, errors="ignore")) >= get_settings().dataset_sample_max_bytes,
+        "truncated": truncated,
     }
 
 
