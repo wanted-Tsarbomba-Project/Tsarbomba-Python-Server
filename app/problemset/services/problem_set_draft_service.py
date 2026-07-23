@@ -1,5 +1,5 @@
-from clients.gemini_client import ProblemSetGeminiClient
-from schemas.problem_set_draft_schema import ChatRequest, ChatResponse
+from app.problemset.clients.gemini_client import ProblemSetGeminiClient
+from app.problemset.schemas.problem_set_draft_schema import ChatRequest, ChatResponse
 
 
 class ProblemSetDraftService:

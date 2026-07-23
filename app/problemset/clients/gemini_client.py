@@ -3,20 +3,20 @@ from typing import Any
 from google import genai
 from google.genai import types
 
-from core.config import get_settings
-from schemas.problem_set_draft_schema import (
+from app.problemset.core.config import get_settings
+from app.problemset.schemas.problem_set_draft_schema import (
     ChatMessage,
     ChatRequest,
     ProblemSetDraftEnvelope,
 )
-from services.dataset_analysis_service import infer_file_name
-from tools.problem_set_tools import (
+from app.problemset.services.dataset_analysis_service import infer_file_name
+from app.problemset.tools.problem_set_tools import (
     analyze_dataset,
     get_problem_categories,
     get_problem_generation_policy,
     get_similar_problem_examples,
 )
-from utils.response_parser import parse_gemini_response
+from app.problemset.utils.response_parser import parse_gemini_response
 
 
 class ProblemSetGeminiClient:
@@ -73,7 +73,7 @@ def _build_system_instruction(operator_id: int) -> str:
 
 관리자가 주제, 난이도, 카테고리, 데이터셋을 주면 문제세트 등록 폼에 넣을 수 있는 초안을 만든다.
 
-데이터셋 기반 문제가 필요한 경우 반드시 analyze_dataset 함수를 호출해 컬럼명, 샘플 값, 인코딩을 확인해야 한다.
+데이터셋 기반 문제가 필요하면 반드시 analyze_dataset 함수를 호출해 컬럼명, 샘플 값, 인코딩을 확인해야 한다.
 카테고리 확인이 필요하면 get_problem_categories 함수를 호출한다.
 문제 작성 규칙이 필요하면 get_problem_generation_policy 함수를 호출한다.
 기존 문제 스타일 참고가 필요하면 get_similar_problem_examples 함수를 호출한다.
@@ -84,14 +84,14 @@ CSV는 사용자가 os.environ["DATASET_PATH"]로 읽는다고 가정한다.
 데이터셋 분석 결과에 cp949 또는 ms949 인코딩이 나오면 문제 본문과 힌트에 해당 encoding 옵션을 안내한다.
 문제세트 초안은 관리자 검토용이며 최종 등록 전 사람이 확인해야 한다.
 
-답변은 한국어 존댓말로 한다.
-최종 응답은 반드시 JSON 객체 하나만 반환한다.
+응답은 한국어 존댓말로 한다.
+최종 답변은 반드시 JSON 객체 하나만 반환한다.
 마크다운 코드블록은 사용하지 않는다.
 각 필드는 짧고 명확하게 작성한다.
 각 소문제의 testCases는 1개만 작성한다.
 testCode는 가능하면 1~3개의 assert 문 중심으로 작성한다.
 content, hint, explanation에는 긴 코드 예시를 넣지 않는다.
-dataFileName, categoryName, difficulty는 요청값을 그대로 유지한다.
+dataFileName, categoryName, difficulty는 요청 값을 그대로 유지한다.
 
 응답 구조:
 {{

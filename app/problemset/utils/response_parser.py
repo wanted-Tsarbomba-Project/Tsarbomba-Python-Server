@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from schemas.problem_set_draft_schema import ProblemSetDraftEnvelope
+from app.problemset.schemas.problem_set_draft_schema import ProblemSetDraftEnvelope
 
 
 def parse_gemini_response(response: Any) -> tuple[str, dict[str, Any] | None]:
@@ -9,11 +9,11 @@ def parse_gemini_response(response: Any) -> tuple[str, dict[str, Any] | None]:
     if isinstance(parsed, ProblemSetDraftEnvelope):
         return parsed.answer, parsed.draft.model_dump()
     if isinstance(parsed, dict):
-        answer = str(parsed.get("answer") or "Problem set draft generated.")
+        answer = str(parsed.get("answer") or "문제세트 초안이 생성되었습니다.")
         draft = parsed.get("draft")
         return answer, draft if isinstance(draft, dict) else None
 
-    return parse_model_answer(response.text or "")
+    return parse_model_answer(getattr(response, "text", None) or "")
 
 
 def parse_model_answer(text: str) -> tuple[str, dict[str, Any] | None]:
