@@ -19,7 +19,7 @@ def analyze_csv_dataset(dataset_url: str, data_file_name: str | None = None) -> 
 
     Gemini가 실제 컬럼명, 샘플 행, 인코딩 정보를 바탕으로 문제와 테스트케이스 초안을 만들 수 있게 한다.
     """
-    is_remote_dataset = dataset_url.startswith(("http://", "https://"))
+    is_remote_dataset = _is_remote_dataset_url(dataset_url)
 
     if is_remote_dataset:
         result = _read_csv_url(dataset_url)
@@ -50,7 +50,7 @@ def _read_csv_url(dataset_url: str) -> dict[str, Any]:
         content = bytearray()
 
         with httpx.stream("GET", dataset_url, headers=headers, timeout=10.0) as response:
-            if response.status_code >= 400:
+            if not 200 <= response.status_code < 300:
                 return {
                     "error": "데이터셋 URL 접근에 실패했습니다.",
                     "status_code": response.status_code,
@@ -73,6 +73,11 @@ def _read_csv_url(dataset_url: str) -> dict[str, Any]:
             "error": "데이터셋 URL 요청 중 오류가 발생했습니다.",
             "exception_type": exc.__class__.__name__,
         }
+
+
+def _is_remote_dataset_url(dataset_url: str) -> bool:
+    scheme = urlparse(dataset_url).scheme.lower()
+    return scheme in {"http", "https"}
 
 
 def _read_csv_path(path: Path) -> dict[str, Any]:
@@ -178,7 +183,7 @@ def _to_record(columns: list[str], row: list[str]) -> dict[str, str]:
 def _validate_dataset_url(dataset_url: str) -> dict[str, Any] | None:
     parsed = urlparse(dataset_url)
 
-    if parsed.scheme != "https":
+    if parsed.scheme.lower() != "https":
         return {"error": "데이터셋 URL은 https만 허용됩니다."}
 
     hostname = parsed.hostname
