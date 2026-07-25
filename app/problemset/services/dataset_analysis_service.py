@@ -19,7 +19,9 @@ def analyze_csv_dataset(dataset_url: str, data_file_name: str | None = None) -> 
 
     Gemini가 실제 컬럼명, 샘플 행, 인코딩 정보를 바탕으로 문제와 테스트케이스 초안을 만들 수 있게 한다.
     """
-    if dataset_url.startswith(("http://", "https://")):
+    is_remote_dataset = dataset_url.startswith(("http://", "https://"))
+
+    if is_remote_dataset:
         result = _read_csv_url(dataset_url)
     else:
         result = _read_csv_path(Path(dataset_url))
@@ -27,18 +29,12 @@ def analyze_csv_dataset(dataset_url: str, data_file_name: str | None = None) -> 
     if "error" in result:
         return result
 
-    result["data_file_name"] = data_file_name or infer_file_name(dataset_url)
+    result["data_file_name"] = infer_file_name(
+        dataset_url=dataset_url if is_remote_dataset else None,
+        dataset_path=dataset_url if not is_remote_dataset else None,
+        data_file_name=data_file_name,
+    )
     return result
-
-
-def infer_file_name(dataset_url: str) -> str:
-    parsed = urlparse(dataset_url)
-    if parsed.scheme:
-        file_name = Path(parsed.path).name
-    else:
-        file_name = Path(dataset_url).name
-
-    return file_name or "dataset.csv"
 
 
 def _read_csv_url(dataset_url: str) -> dict[str, Any]:
@@ -52,24 +48,26 @@ def _read_csv_url(dataset_url: str) -> dict[str, Any]:
 
     try:
         content = bytearray()
+
         with httpx.stream("GET", dataset_url, headers=headers, timeout=10.0) as response:
-            response.raise_for_status()
+            if response.status_code >= 400:
+                return {
+                    "error": "데이터셋 URL 접근에 실패했습니다.",
+                    "status_code": response.status_code,
+                }
 
             for chunk in response.iter_bytes():
                 remaining = max_bytes + 1 - len(content)
                 if remaining <= 0:
                     break
+
                 content.extend(chunk[:remaining])
 
         sample_bytes, truncated = _limit_sample_bytes(bytes(content), max_bytes)
         return _decode_csv_bytes(sample_bytes, {"dataset_url": dataset_url}, truncated)
+
     except httpx.TimeoutException:
         return {"error": "데이터셋 URL 응답이 지연되고 있습니다."}
-    except httpx.HTTPStatusError as exc:
-        return {
-            "error": "데이터셋 URL 접근에 실패했습니다.",
-            "status_code": exc.response.status_code,
-        }
     except Exception as exc:
         return {
             "error": "데이터셋 URL 요청 중 오류가 발생했습니다.",
@@ -91,6 +89,7 @@ def _read_csv_path(path: Path) -> dict[str, Any]:
 
     if not resolved_path.exists():
         return {"error": "데이터셋 파일을 찾을 수 없습니다.", "dataset_path": str(resolved_path)}
+
     if not resolved_path.is_file():
         return {"error": "데이터셋 경로가 파일이 아닙니다.", "dataset_path": str(resolved_path)}
 
@@ -206,3 +205,25 @@ def _is_allowed_host(hostname: str, allowed_hosts: tuple[str, ...]) -> bool:
             return True
 
     return False
+
+
+def infer_file_name(
+    dataset_url: str | None = None,
+    dataset_path: str | None = None,
+    data_file_name: str | None = None,
+) -> str:
+    if data_file_name:
+        return Path(data_file_name).name
+
+    if dataset_url:
+        parsed = urlparse(dataset_url)
+        file_name = Path(parsed.path).name
+        if file_name:
+            return file_name
+
+    if dataset_path:
+        file_name = Path(dataset_path).name
+        if file_name:
+            return file_name
+
+    return "dataset.csv"
