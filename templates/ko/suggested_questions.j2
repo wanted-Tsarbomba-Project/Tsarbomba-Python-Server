@@ -17,7 +17,7 @@
 
 클러스터 (size = 빈도, samples = 원시 질문 예시):
 {% for c in clusters %}
-- [size {{ c.size }}] {% for s in c.samples %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %}
+- [size {{ c.size }}] "{{ c.samples | join('", "') }}"
 {% endfor %}
 
 JSON만 반환: {"questions": ["...", "..."]} — 빈도 높은 순으로 정렬.

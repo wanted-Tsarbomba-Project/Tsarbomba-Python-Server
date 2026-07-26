@@ -11,8 +11,8 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Gemini 임베딩 모델. 색인과 검색이 같은 모델이어야 하듯, 여기선 한 번만 쓴다.
-EMBEDDING_MODEL = "text-embedding-004"
+# Gemini 임베딩 모델. text-embedding-004는 현재 API 세대(v1beta)에서 제거됨 → gemini-embedding-001 사용.
+EMBEDDING_MODEL = "gemini-embedding-001"
 
 
 @lru_cache()
