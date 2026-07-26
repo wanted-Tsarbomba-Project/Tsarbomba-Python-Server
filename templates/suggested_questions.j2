@@ -18,7 +18,7 @@ Rules:
 
 Clusters (size = frequency, samples = example raw questions):
 {% for c in clusters %}
-- [size {{ c.size }}] {% for s in c.samples %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %}
+- [size {{ c.size }}] "{{ c.samples | join('", "') }}"
 {% endfor %}
 
 Return JSON only: {"questions": ["...", "..."]} ordered by frequency, most frequent first.
