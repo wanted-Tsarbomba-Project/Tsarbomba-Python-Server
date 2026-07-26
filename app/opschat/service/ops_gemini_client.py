@@ -34,8 +34,10 @@ logger = logging.getLogger(__name__)
 OPS_RESPONSE_FAILED = "OPS-001"
 OPS_RESPONSE_FAILED_MESSAGE = "운영 챗봇 응답 생성에 실패했습니다."
 
-# 도구 호출 라운드 상한 — 무한 루프/토큰 폭주 방지
-MAX_TOOL_ROUNDS = 4
+# 도구 호출 라운드 상한 — 무한 루프/토큰 폭주 방지.
+# 프롬프트의 드릴다운(count→timeline→top_ips→recent, 최대 4스텝) + 모델의 재호출
+# 여유를 감안해 6으로 둔다. 상한 도달 시엔 에러가 아니라 '도구 잠그고 최종 답변'으로 마무리.
+MAX_TOOL_ROUNDS = 6
 
 _STATUS_MESSAGES = {
     "count_events": "이벤트 건수 집계 중...",
@@ -103,11 +105,21 @@ def _build_contents(request: OpsChatRequest) -> list[types.Content]:
     return contents
 
 
-def _build_config(system_prompt: str) -> types.GenerateContentConfig:
+def _build_config(
+    system_prompt: str, allow_tools: bool = True
+) -> types.GenerateContentConfig:
     tool = types.Tool(function_declarations=ops_tools.TOOL_DECLARATIONS)
+    # 마지막 라운드엔 도구 호출을 막아(mode=NONE) 모델이 지금까지 모은 결과로
+    # 반드시 '답변 텍스트'를 내도록 강제한다 — 무한 드릴다운 → 상한 초과 폴백 방지.
+    tool_config = None
+    if not allow_tools:
+        tool_config = types.ToolConfig(
+            function_calling_config=types.FunctionCallingConfig(mode="NONE")
+        )
     return types.GenerateContentConfig(
         system_instruction=system_prompt,
         tools=[tool],
+        tool_config=tool_config,
     )
 
 
@@ -127,15 +139,18 @@ def stream_ops_chat(
     client = _get_client()
     contents = _build_contents(request)
     config = _build_config(system_prompt)
+    final_config = _build_config(system_prompt, allow_tools=False)
     total_usage = {"promptTokens": 0, "completionTokens": 0, "totalTokens": 0}
 
     try:
         # 라운드 0 = 첫 호출, 이후 도구 결과를 붙일 때마다 +1 (상한 MAX_TOOL_ROUNDS)
         for round_no in range(MAX_TOOL_ROUNDS + 1):
+            # 마지막 라운드는 도구를 잠가 '반드시 답변'을 유도한다.
+            force_final = round_no == MAX_TOOL_ROUNDS
             stream = client.models.generate_content_stream(
                 model=settings.gemini_model,
                 contents=contents,
-                config=config,
+                config=final_config if force_final else config,
             )
 
             calls: list = []
@@ -159,15 +174,14 @@ def stream_ops_chat(
                 yield done_frame(total_usage)
                 return
 
-            if round_no == MAX_TOOL_ROUNDS:
+            if force_final:
+                # 도구를 잠갔는데도(mode=NONE) 텍스트 없이 도구 호출만 온 예외 상황.
+                # 에러 대신 지금까지의 사용량으로 조용히 마무리한다 (사용자에겐 부분 답변).
                 logger.warning(
                     "event=opschat_tool_rounds_exceeded rounds=%s trace_id=%s",
                     round_no, trace_id,
                 )
-                yield error_frame(
-                    OPS_RESPONSE_FAILED,
-                    "조회 단계가 너무 깊어요. 질문 범위를 좁혀서 다시 시도해주세요.",
-                )
+                yield done_frame(total_usage)
                 return
 
             # 모델의 도구 호출 턴을 원본 파트 그대로 대화에 기록 (thought_signature 보존)
