@@ -188,7 +188,10 @@ def stream_ops_chat(
                         name=fc.name, response={"result": result}
                     )
                 )
-            contents.append(types.Content(role="tool", parts=response_parts))
+            # Gemini API가 인정하는 role 은 user/model 뿐 — 도구 결과는 role="user" 로
+            # 되돌려야 모델이 "함수 호출이 응답됨"을 인식한다 (role="tool" 이면 미인식 →
+            # 같은 도구 매 라운드 재호출 → MAX_TOOL_ROUNDS 초과 루프)
+            contents.append(types.Content(role="user", parts=response_parts))
 
     except ops_tools.ToolExecutionError:
         logger.exception(
